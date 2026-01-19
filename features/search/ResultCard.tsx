@@ -6,7 +6,8 @@ import {
   HeartIcon, 
   ArrowTopRightOnSquareIcon,
   BookmarkIcon as BookmarkOutline,
-  VideoCameraIcon
+  VideoCameraIcon,
+  GlobeAltIcon
 } from '@heroicons/react/24/outline';
 import { BookmarkIcon as BookmarkSolid } from '@heroicons/react/24/solid';
 
@@ -36,6 +37,12 @@ const ResultCard: React.FC<ResultCardProps> = ({ post, onSave }) => {
               <span className="text-gray-400 text-xs">{post.authorHandle}</span>
               <span className="text-gray-300">•</span>
               <span className="text-gray-400 text-xs">{post.timestamp}</span>
+              {post.sourceUrl && (
+                <div className="flex items-center text-[10px] text-zinc-400 bg-zinc-50 px-1.5 py-0.5 rounded border border-zinc-100 animate-in fade-in duration-300">
+                  <GlobeAltIcon className="w-2.5 h-2.5 mr-1" />
+                  <span>Verified Signal</span>
+                </div>
+              )}
             </div>
             <div className="flex items-center space-x-2 opacity-0 group-hover:opacity-100 transition-opacity">
               <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium border ${
@@ -82,7 +89,7 @@ const ResultCard: React.FC<ResultCardProps> = ({ post, onSave }) => {
                 {post.isSaved ? <BookmarkSolid className="w-5 h-5 text-black" /> : <BookmarkOutline className="w-5 h-5" />}
               </button>
               <a 
-                href="https://twitter.com" 
+                href={post.sourceUrl || "https://twitter.com"} 
                 target="_blank" 
                 rel="noreferrer"
                 className="text-gray-400 hover:text-blue-500 transition-colors"

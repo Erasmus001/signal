@@ -1,12 +1,13 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { MagnifyingGlassIcon, AdjustmentsHorizontalIcon, SparklesIcon, BookmarkIcon, ListBulletIcon } from '@heroicons/react/24/outline';
+import { MagnifyingGlassIcon, AdjustmentsHorizontalIcon, SparklesIcon, BookmarkIcon, ListBulletIcon, ArrowPathIcon } from '@heroicons/react/24/outline';
 import ResultCard from '../features/search/ResultCard';
 import ResultSkeleton from '../components/ResultSkeleton';
 import EmptyStateIllustration from '../components/EmptyStateIllustration';
 import { MOCK_POSTS } from '../constants';
 import { Post, ContentType, UserPreferences } from '../types';
 import { saveSearch, logSearch, getBookmarkedPostIds, togglePostBookmark } from '../utils/storage';
+import { discoverSignals } from '../ai/signalService';
 
 const Discovery: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
@@ -14,6 +15,7 @@ const Discovery: React.FC = () => {
   const [minEngagement, setMinEngagement] = useState(0);
   const [posts, setPosts] = useState<Post[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
   const [userPrefs, setUserPrefs] = useState<UserPreferences | null>(null);
 
@@ -36,17 +38,25 @@ const Discovery: React.FC = () => {
     setIsLoading(false);
   }, []);
 
-  useEffect(() => {
-    if (isLoading) return;
-    const timer = setTimeout(() => {
-      if (searchQuery.trim()) {
-        logSearch(searchQuery);
-      }
-    }, 600);
-    return () => clearTimeout(timer);
-  }, [searchQuery, activeFilter, minEngagement]);
+  const handleAnalyze = async () => {
+    if (!searchQuery.trim()) return;
+    
+    setIsAnalyzing(true);
+    logSearch(searchQuery);
 
-  // Calculate counts based on current search query and engagement, but before category filter
+    const signals = await discoverSignals(searchQuery, userPrefs?.searchIntent || null);
+    
+    if (signals.length > 0) {
+      setPosts(signals);
+    } else {
+      // Fallback or just empty
+      setPosts([]);
+    }
+    
+    setIsAnalyzing(false);
+  };
+
+  // Calculate counts based on current search query and engagement
   const filterCounts = useMemo(() => {
     const baseResults = posts.filter(post => {
       const matchesSearch = post.content.toLowerCase().includes(searchQuery.toLowerCase()) || 
@@ -87,14 +97,15 @@ const Discovery: React.FC = () => {
   };
 
   const aiInsightsText = useMemo(() => {
+    if (isAnalyzing) return "AI is currently scanning live signals for high-intent activity...";
     if (userPrefs?.searchIntent === 'Leads') {
-      return "Leads matching 'SaaS outreach' are trending right now. We found 3 high-probability signals for you.";
+      return "Focusing on buying intent signals. Latest analysis shows rising demand for SaaS solutions in your niche.";
     }
     if (userPrefs?.searchIntent === 'Long-form') {
       return "Thread activity is up 12% in the tech sector. Focus on expert breakdowns for best reach.";
     }
-    return "Based on your filters, we see high intent in the B2B SaaS space today across multiple channels.";
-  }, [userPrefs]);
+    return "Our Signal Discovery engine is active. Perform an 'Analyze' to see grounded real-time data.";
+  }, [userPrefs, isAnalyzing]);
 
   const filterOptions: ContentType[] = ['All', 'Leads', 'Threads', 'Links', 'Video'];
 
@@ -102,7 +113,7 @@ const Discovery: React.FC = () => {
     <div className="p-8 max-w-6xl mx-auto animate-in fade-in slide-in-from-bottom-2 duration-700">
       <div className="mb-10">
         <h1 className="text-3xl font-bold tracking-tight text-gray-900 mb-2">Discovery</h1>
-        <p className="text-gray-500 text-sm">Real-time signal tracking and content discovery.</p>
+        <p className="text-gray-500 text-sm">Real-time signal tracking and content discovery via Gemini Search Grounding.</p>
       </div>
 
       <div className="bg-white border border-gray-100 rounded-2xl shadow-sm p-2 mb-12 flex items-center space-x-2 focus-within:ring-2 focus-within:ring-zinc-100 transition-all max-w-3xl mx-auto">
@@ -115,6 +126,7 @@ const Discovery: React.FC = () => {
           className="flex-1 py-3 px-2 outline-none text-gray-800 placeholder-gray-400 bg-transparent text-sm"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && handleAnalyze()}
         />
         
         <div className="flex items-center space-x-2 pr-1">
@@ -131,8 +143,13 @@ const Discovery: React.FC = () => {
             <span>{isSaved ? 'Saved!' : 'Save Search'}</span>
           </button>
           
-          <button className="bg-zinc-900 text-white px-6 py-2 rounded-xl text-sm font-semibold hover:bg-black transition-colors shadow-sm active:scale-95">
-            Analyze
+          <button 
+            onClick={handleAnalyze}
+            disabled={isAnalyzing || !searchQuery.trim()}
+            className="bg-zinc-900 text-white px-6 py-2 rounded-xl text-sm font-semibold hover:bg-black transition-all shadow-sm active:scale-95 disabled:opacity-50 flex items-center space-x-2"
+          >
+            {isAnalyzing && <ArrowPathIcon className="w-4 h-4 animate-spin" />}
+            <span>{isAnalyzing ? 'Analyzing...' : 'Analyze'}</span>
           </button>
         </div>
       </div>
@@ -181,19 +198,19 @@ const Discovery: React.FC = () => {
             />
           </div>
 
-          <div className="p-4 bg-zinc-50 rounded-2xl border border-zinc-100 ring-1 ring-zinc-200/50">
-            <div className="flex items-center space-x-2 text-zinc-900 mb-2">
-              <SparklesIcon className="w-4 h-4 text-zinc-600" />
+          <div className={`p-4 rounded-2xl border transition-all duration-500 ${isAnalyzing ? 'bg-zinc-900 border-zinc-800' : 'bg-zinc-50 border-zinc-100 ring-1 ring-zinc-200/50'}`}>
+            <div className={`flex items-center space-x-2 mb-2 ${isAnalyzing ? 'text-white' : 'text-zinc-900'}`}>
+              <SparklesIcon className={`w-4 h-4 ${isAnalyzing ? 'text-zinc-400 animate-pulse' : 'text-zinc-600'}`} />
               <span className="text-xs font-bold uppercase tracking-tight">AI Insights</span>
             </div>
-            <p className="text-[11px] text-zinc-500 leading-relaxed font-medium">
+            <p className={`text-[11px] leading-relaxed font-medium ${isAnalyzing ? 'text-zinc-400' : 'text-zinc-500'}`}>
               {aiInsightsText}
             </p>
           </div>
         </aside>
 
         <div className="flex-1 space-y-4">
-          {isLoading ? (
+          {(isLoading || isAnalyzing) ? (
             Array.from({ length: 3 }).map((_, i) => <ResultSkeleton key={i} />)
           ) : filteredPosts.length > 0 ? (
             filteredPosts.map(post => (
@@ -206,7 +223,7 @@ const Discovery: React.FC = () => {
               </div>
               <h3 className="text-gray-900 font-semibold text-lg mb-2">Scanning for Signal...</h3>
               <p className="text-gray-400 text-sm max-w-sm mx-auto leading-relaxed">
-                We couldn't find any results matching your current filters.
+                We couldn't find any results matching your current filters. Try clicking 'Analyze' to fetch real-time data.
               </p>
             </div>
           )}

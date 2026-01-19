@@ -12,6 +12,7 @@ export interface Post {
   timestamp: string;
   isSaved: boolean;
   type: ContentType;
+  sourceUrl?: string; // For search grounding sources
 }
 
 export interface SavedSearch {
